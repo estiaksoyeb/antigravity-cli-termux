@@ -65,7 +65,7 @@ jobs:
       - name: Package Standalone Archive
         if: steps.check_version.outputs.build_needed == 'true'
         run: |
-          tar -czf antigravity-termux-standalone.tar.gz bin/
+          tar -czf antigravity-termux-standalone.tar.gz bin/ lib/
 
       - name: Attest Artifacts
         uses: actions/attest-build-provenance@v4

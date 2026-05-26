@@ -77,13 +77,36 @@ void check_and_perform_update(const char* dir) {
 }
 
 int main(int argc, char** argv) {
-    // 1. Clear conflicting Android Bionic preloads and search paths
-    unsetenv("LD_PRELOAD");
+    // 1. Detect environment and setup paths
+    int is_termux = (access("/data/data/com.termux/files/usr/bin", F_OK) == 0);
+    
+    // Clear conflicting Android Bionic preloads if in Termux
+    if (is_termux) {
+        unsetenv("LD_PRELOAD");
+    } else {
+        // In non-Termux environments (e.g. Ubuntu chroot), we may need the mmap fixer
+        // to handle the 39-bit VA limit of the underlying Android kernel.
+        char fixer_path[PATH_MAX];
+        char exec_path[PATH_MAX];
+        ssize_t len = readlink("/proc/self/exe", exec_path, sizeof(exec_path) - 1);
+        if (len != -1) {
+            exec_path[len] = '\0';
+            char* dir = dirname(exec_path);
+            snprintf(fixer_path, sizeof(fixer_path), "%s/../lib/libmmap_va39_fix.so", dir);
+            if (access(fixer_path, F_OK) == 0) {
+                setenv("LD_PRELOAD", fixer_path, 1);
+            }
+        }
+    }
     unsetenv("LD_LIBRARY_PATH");
 
     // 2. Set dynamic Go resolver and SSL configurations
     setenv("GODEBUG", "netdns=cgo", 1);
-    setenv("SSL_CERT_FILE", "/data/data/com.termux/files/usr/etc/tls/cert.pem", 1);
+    if (is_termux) {
+        setenv("SSL_CERT_FILE", "/data/data/com.termux/files/usr/etc/tls/cert.pem", 1);
+    } else if (access("/etc/ssl/certs/ca-certificates.crt", F_OK) == 0) {
+        setenv("SSL_CERT_FILE", "/etc/ssl/certs/ca-certificates.crt", 1);
+    }
 
     // 3. Resolve executable directory
     char exec_path[PATH_MAX];
@@ -101,31 +124,48 @@ int main(int argc, char** argv) {
     }
 
     // 5. Construct relocatable paths relative to our executable's location
-    char lib_path[PATH_MAX * 2];
+    char lib_path[PATH_MAX * 3];
     char patched_bin[PATH_MAX];
     char* loader = "/data/data/com.termux/files/usr/glibc/lib/ld-linux-aarch64.so.1";
+    
+    if (access(loader, F_OK) != 0) {
+        loader = "/lib/ld-linux-aarch64.so.1";
+    }
 
-    // lib_path: <exec_dir>/../lib:/data/data/com.termux/files/usr/glibc/lib
-    snprintf(lib_path, sizeof(lib_path), "%s/../lib:/data/data/com.termux/files/usr/glibc/lib", dir);
+    if (is_termux) {
+        snprintf(lib_path, sizeof(lib_path), "%s/../lib:/data/data/com.termux/files/usr/glibc/lib", dir);
+    } else {
+        snprintf(lib_path, sizeof(lib_path), "%s/../lib:/lib/aarch64-linux-gnu:/usr/lib/aarch64-linux-gnu", dir);
+    }
     
     // patched_bin: <exec_dir>/agy.va39
     snprintf(patched_bin, sizeof(patched_bin), "%s/agy.va39", dir);
 
     // 6. Construct argument array
-    char** new_argv = malloc((argc + 4) * sizeof(char*));
+    char** new_argv = malloc((argc + 6) * sizeof(char*));
     if (!new_argv) {
         return 1;
     }
 
-    new_argv[0] = loader;
-    new_argv[1] = "--library-path";
-    new_argv[2] = lib_path;
-    new_argv[3] = patched_bin;
+    int arg_idx = 0;
+    new_argv[arg_idx++] = loader;
+    
+    // Add preload if fixer exists (important for Ubuntu/chroot on Android)
+    char fixer_path[PATH_MAX];
+    snprintf(fixer_path, sizeof(fixer_path), "%s/../lib/libmmap_va39_fix.so", dir);
+    if (access(fixer_path, F_OK) == 0) {
+        new_argv[arg_idx++] = "--preload";
+        new_argv[arg_idx++] = strdup(fixer_path);
+    }
+
+    new_argv[arg_idx++] = "--library-path";
+    new_argv[arg_idx++] = lib_path;
+    new_argv[arg_idx++] = patched_bin;
 
     for (int i = 1; i < argc; i++) {
-        new_argv[i + 3] = argv[i];
+        new_argv[arg_idx++] = argv[i];
     }
-    new_argv[argc + 3] = NULL;
+    new_argv[arg_idx] = NULL;
 
     // 7. Execute glibc loader
     execv(loader, new_argv);

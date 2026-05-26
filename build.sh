@@ -195,10 +195,17 @@ print(f"Patched parameters: ubfx={ubfx_count}, lsl={lsl_count}, mask={mask_count
 PY
 ok "Patched binary generated: bin/agy.va39"
 
-# 2. Compile native C bootstrapper bin/agy
-info "Compiling native C bootstrapper from lib/agy_helper.c..."
+# 2. Compile native C bootstrapper bin/agy and compatibility libraries
+info "Compiling native C bootstrapper and compatibility layers..."
 if ! "$local_cc" -O2 -o bin/agy lib/agy_helper.c; then
   die "Compilation of lib/agy_helper.c failed."
 fi
+
+# Compile the mmap VA39 interposer as a shared library
+mkdir -p lib
+if ! "$local_cc" -O2 -fPIC -shared -o lib/libmmap_va39_fix.so lib/mmap_va39_fix.c -ldl; then
+  die "Compilation of lib/mmap_va39_fix.c failed."
+fi
+
 chmod +x bin/agy
-ok "Native bootstrapper compiled: bin/agy"
+ok "Native bootstrapper and compatibility libraries compiled."
