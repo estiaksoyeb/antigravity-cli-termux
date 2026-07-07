@@ -115,6 +115,14 @@ irm https://antigravity.google/cli/install.ps1 | iex
 curl -fsSL https://antigravity.google/cli/install.cmd -o install.cmd && install.cmd && del install.cmd
 ```
 
+## Usage
+
+After installation, start Antigravity CLI by running:
+
+```bash
+agy
+```
+
 ---
 
 ## Authentication
