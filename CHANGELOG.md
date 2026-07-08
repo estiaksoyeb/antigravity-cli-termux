@@ -2,6 +2,23 @@
 
 The terminal-first surface to interact with Antigravity agents. Stay in your flow without context switching.
 
+## 1.1.0
+
+- Agent execution mode cycling is now publicly available: `default` -> `accept-edits` -> `plan`)
+- Added `request-review` (default) mode as the default execution behavior: automatically pauses before file write operations to display an interactive, line-level diff preview (`f` shortcut) where users can review, accept, or reject individual code modifications before they are saved to disk.
+- Added an `Agent Mode` option to the `/settings` panel so users can set and persist a default execution mode (`default`, `accept-edits`, `plan`) without manually editing `settings.json` or passing `--mode` on startup, with real-time synchronization so changes take effect immediately.
+- Added a dedicated `"Create file"` confirmation preview for new file creations (`write_to_file` without overwrite): renders new content as an addition-only diff preview.
+- Added `/plan` mode to replace legacy `/planning`, and removed `/fast` slash commands: consolidated and simplified execution mode switching around `shift+tab` mode cycling and the `/plan` mode prefix
+- Improved file-edit diff preview rendering: computed accurate line-level diffs with context lines (`3` lines) and hunk separators, capped inline preview height with truncation hints, and added a comment confirmation prompt when exiting the diff view with unsent comments.
+- Improved UI footer keybinding hints across all panels (such as `/tasks`, `/agents`, `/permissions`, and `/mcp`) by replacing hardcoded hint strings with centralized layout helpers that dynamically respect customized global and local keybinding configurations (`keybindings.json`).
+- Improved the multiline conversation rename view in the `/resume` picker by dynamically adjusting input box width and padding, and right-aligning metadata columns (`workspace`, `steps`, `time`) on the top line to prevent horizontal scrolling or layout shifts during active renaming.
+- Fixed the tool confirmation dialog to accurately check normalized file URIs against active workspace directories, resolving an issue where valid in-workspace file creations and reads were incorrectly flagged with an `"Reason: outside workspace"` warning.
+- Fixed workspace initialization failures when launching the CLI inside dot-prefixed directories (such as  .parent_dir/project ) by scoping path exclusion filters strictly to relative paths inside the workspace rather than rejecting dot-prefixed ancestor directories.
+- Fixed the `/agents` view header displaying `agent.json` instead of `agent.md` when creating new subagents.
+- Fixed the `/agents` panel's `"Create New Agents"` section displaying the wrong global configuration directory (`~/.gemini/antigravity-cli/` instead of `~/.gemini/config/`), ensuring users create global subagents in the location actively scanned during startup discovery.
+- Fixed statusline shortcut hints (`? for shortcuts`) and redundant escape hints (`Esc to cancel`) erroneously appearing inside full-screen overlay panels (such as `/changelog`, `/artifact`, and `/settings`) by correctly tracking overlay panel states.
+- Fixed inconsistent timestamp formatting in the `/tasks` panel and task detail views by converting agent-initiated background task timestamps (`time.Time`) from UTC to the local timezone.
+
 ## 1.0.16
 
 - Improved the `/tasks` detail panel to automatically scroll to the bottom as new background task logs stream in, and default to the latest output when opened while preserving scroll position if scrolled up manually.
